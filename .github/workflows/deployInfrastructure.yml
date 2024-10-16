@@ -43,6 +43,21 @@ jobs:
       working-directory: ${{ github.workspace }}/
       run: terraform init
 
+    # Create terraform.tfvars dynamically
+    - name: Create terraform.tfvars
+      working-directory: ${{ github.workspace }}/
+      run: |
+        echo "resource_group_name=\"ContactWebApplicationRG\"" > terraform.tfvars
+        echo "location=\"eastus\"" > terraform.tfvars
+        echo "clientIpAddress=\"104.230.227.233\"" > terraform.tfvars
+        echo "sqlServerName=\"contactwebdbserverterraform\"" > terraform.tfvars
+        echo "sqlDatabaseName=\"ContactWebDB\"" > terraform.tfvars
+        echo "sqlDbSkuName=\"Basic\"" > terraform.tfvars
+        echo "uniqueIdentifier=\"20240109sam\"" > terraform.tfvars
+        echo "logAnalyticsWorkSpaceName=\"contactWebAnalytics\"" > terraform.tfvars
+        echo "appInsightsName=\"contactWebAppInsights\"" > terraform.tfvars
+        echo "keyVaultName=\"KV-ContactWeb\"" > terraform.tfvars
+        
     # Checks that all Terraform configuration files adhere to a canonical format
     # Will fail the build if not
     - name: Terraform Format
@@ -101,4 +116,7 @@ jobs:
     # Terraform Apply
     - name: Terraform Apply
       working-directory: ${{ github.workspace }}/
-      run: terraform apply -auto-approve ${{ github.workspace }}/tfplan    
+      run: terraform apply -auto-approve ${{ github.workspace }}/tfplan
+      env:
+        TF_VAR_sqlServerAdmin: ${{ secrets.SQL_SERVER_ADMIN }}
+        TF_VAR_sqlServerPwd: ${{ secrets.SQL_SERVER_PWD }}
