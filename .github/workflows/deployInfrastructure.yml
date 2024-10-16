@@ -68,6 +68,9 @@ jobs:
     - name: Terraform Plan
       id: tf-plan
       working-directory: ${{ github.workspace }}/
+      env:
+        TF_VAR_sqlServerAdmin: ${{ secrets.SQL_SERVER_ADMIN }}
+        TF_VAR_sqlServerPwd: ${{ secrets.SQL_SERVER_PWD }}
       run: |
         export exitcode=0
         terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
