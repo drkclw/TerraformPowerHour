@@ -1,6 +1,6 @@
 resource "azurerm_resource_group" "rg-contact-web-application" {
-   name     = var.resource_group_name
-   location = var.location
+  name     = var.resource_group_name
+  location = var.location
 }
 
 module "sqlServer" {
@@ -10,7 +10,7 @@ module "sqlServer" {
   location          = azurerm_resource_group.rg-contact-web-application.location
   clientIpAddress   = var.clientIpAddress
   sqlServerName     = var.sqlServerName
-  sqlServerAdmin    = var.sqlServerAdmin 
+  sqlServerAdmin    = var.sqlServerAdmin
   sqlServerPwd      = var.sqlServerPwd
   sqlDatabaseName   = var.sqlDatabaseName
   sqlDbSkuName      = var.sqlDbSkuName
