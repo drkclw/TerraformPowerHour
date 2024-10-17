@@ -45,3 +45,17 @@ module "keyvault" {
   uniqueIdentifier  = var.uniqueIdentifier
   keyVaultName      = var.keyVaultName
 }
+
+module "appService" {
+  source = "./modules/appService"
+
+  resourceGroupName  = azurerm_resource_group.rg-contact-web-application.name
+  location           = azurerm_resource_group.rg-contact-web-application.location
+  appInsightsName    = var.appInsightsName
+  uniqueIdentifier   = var.uniqueIdentifier
+  appServicePlanName = var.appServicePlanName
+  webAppName         = var.webAppName
+  defaultDBSecretURI = module.keyvault.identityDBConnectionSecretURI
+  managerDBSecretURI = module.keyvault.managerDBConnectionSecretURI
+  keyVaultId         = module.keyvault.keyVaultId
+}
