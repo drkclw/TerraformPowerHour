@@ -15,6 +15,8 @@ env:
   APP_PACKAGE_PATH: 'myapp'
   # set this to the dotnet version to use
   DOTNET_VERSION: '6.0.x'
+  # Put your app name here
+  AZURE_WEB_APP_NAME: 'ContactWebTerraform-20240109sam'
   WORKING_DIRECTORY: 'src/ContactWebEFCore6'
   
 permissions:
