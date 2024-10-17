@@ -62,6 +62,8 @@ jobs:
         echo "logAnalyticsWorkSpaceName=\"contactWebAnalytics\"" >> terraform.tfvars
         echo "appInsightsName=\"contactWebAppInsights\"" >> terraform.tfvars
         echo "keyVaultName=\"KV-ContactWeb\"" >> terraform.tfvars
+        echo "appServicePlanName=\"contactWebASPTerraform\"" >> terraform.tfvars
+        echo "webAppName=\"ContactWebTerraform\"" >> terraform.tfvars
 
     # Generates an execution plan for Terraform
     # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
