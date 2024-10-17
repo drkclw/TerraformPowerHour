@@ -53,21 +53,24 @@ jobs:
       working-directory: ${{ github.workspace }}/
       run: |
         echo "resource_group_name=\"ContactWebApplicationRG\"" > terraform.tfvars
-        echo "location=\"eastus\"" > terraform.tfvars
-        echo "clientIpAddress=\"104.230.227.233\"" > terraform.tfvars
-        echo "sqlServerName=\"contactwebdbserverterraform\"" > terraform.tfvars
-        echo "sqlDatabaseName=\"ContactWebDB\"" > terraform.tfvars
-        echo "sqlDbSkuName=\"Basic\"" > terraform.tfvars
-        echo "uniqueIdentifier=\"20240109sam\"" > terraform.tfvars
-        echo "logAnalyticsWorkSpaceName=\"contactWebAnalytics\"" > terraform.tfvars
-        echo "appInsightsName=\"contactWebAppInsights\"" > terraform.tfvars
-        echo "keyVaultName=\"KV-ContactWeb\"" > terraform.tfvars
+        echo "location=\"eastus\"" >> terraform.tfvars
+        echo "clientIpAddress=\"104.230.227.233\"" >> terraform.tfvars
+        echo "sqlServerName=\"contactwebdbserverterraform\"" >> terraform.tfvars
+        echo "sqlDatabaseName=\"ContactWebDB\"" >> terraform.tfvars
+        echo "sqlDbSkuName=\"Basic\"" >> terraform.tfvars
+        echo "uniqueIdentifier=\"20240109sam\"" >> terraform.tfvars
+        echo "logAnalyticsWorkSpaceName=\"contactWebAnalytics\"" >> terraform.tfvars
+        echo "appInsightsName=\"contactWebAppInsights\"" >> terraform.tfvars
+        echo "keyVaultName=\"KV-ContactWeb\"" >> terraform.tfvars
 
     # Generates an execution plan for Terraform
     # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
     - name: Terraform Plan
       id: tf-plan
       working-directory: ${{ github.workspace }}/
+      env:
+        TF_VAR_sqlServerAdmin: ${{ secrets.SQL_SERVER_ADMIN }}
+        TF_VAR_sqlServerPwd: ${{ secrets.SQL_SERVER_PWD }}
       run: |
         export exitcode=0
         terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
