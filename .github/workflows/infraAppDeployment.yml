@@ -1,0 +1,167 @@
+name: "Infrastructure and App Deployment"
+
+on:
+  push:
+    branches: [ nowayjose ]
+  workflow_dispatch:
+
+env: 
+  ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
+  ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+  ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
+  CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }} 
+  DEPLOYMENT_NAME: 'TerraformDeployResources'
+  REGION: 'eastus'
+  APP_PACKAGE_PATH: 'myapp'
+  # set this to the dotnet version to use
+  DOTNET_VERSION: '6.0.x'
+  WORKING_DIRECTORY: 'src/ContactWebEFCore6'
+  
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-infrastructure:
+    name: 'Terraform Plan'
+    runs-on: ubuntu-latest
+    env:
+      #this is needed since we are running terraform with read-only permissions
+      ARM_SKIP_PROVIDER_REGISTRATION: true
+    outputs:
+      tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    # Install the latest version of the Terraform CLI
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_wrapper: false
+
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      working-directory: ${{ github.workspace }}/
+      run: terraform init
+      
+    # Checks that all Terraform configuration files adhere to a canonical format
+    # Will fail the build if not
+    - name: Terraform Format
+      run: terraform fmt -check
+
+    # Create terraform.tfvars dynamically
+    - name: Create terraform.tfvars
+      working-directory: ${{ github.workspace }}/
+      run: |
+        echo "resource_group_name=\"ContactWebApplicationRG\"" > terraform.tfvars
+        echo "location=\"eastus\"" >> terraform.tfvars
+        echo "clientIpAddress=\"104.230.227.233\"" >> terraform.tfvars
+        echo "sqlServerName=\"contactwebdbserverterraform\"" >> terraform.tfvars
+        echo "sqlDatabaseName=\"ContactWebDB\"" >> terraform.tfvars
+        echo "sqlDbSkuName=\"Basic\"" >> terraform.tfvars
+        echo "uniqueIdentifier=\"20240109sam\"" >> terraform.tfvars
+        echo "logAnalyticsWorkSpaceName=\"contactWebAnalytics\"" >> terraform.tfvars
+        echo "appInsightsName=\"contactWebAppInsights\"" >> terraform.tfvars
+        echo "keyVaultName=\"KV-ContactWeb\"" >> terraform.tfvars
+        echo "appServicePlanName=\"contactWebASPTerraform\"" >> terraform.tfvars
+        echo "webAppName=\"ContactWebTerraform\"" >> terraform.tfvars
+
+    # Generates an execution plan for Terraform
+    # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
+    - name: Terraform Plan
+      id: tf-plan
+      working-directory: ${{ github.workspace }}/
+      env:
+        TF_VAR_sqlServerAdmin: ${{ secrets.SQL_SERVER_ADMIN }}
+        TF_VAR_sqlServerPwd: ${{ secrets.SQL_SERVER_PWD }}
+      run: |
+        export exitcode=0
+        terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
+
+        echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
+        
+        if [ $exitcode -eq 1 ]; then
+          echo Terraform Plan Failed!
+          exit 1
+        else 
+          exit 0
+        fi
+        
+    # Save plan to artifacts  
+    - name: Publish Terraform Plan
+      uses: actions/upload-artifact@v3
+      with:
+        name: tfplan
+        path: ${{ github.workspace }}/tfplan
+        
+    # Create string output of Terraform Plan
+    - name: Create String Output
+      id: tf-plan-string
+      working-directory: ${{ github.workspace }}/
+      run: |
+        TERRAFORM_PLAN=$(terraform show -no-color tfplan)
+        
+        delimiter="$(openssl rand -hex 8)"
+        echo "summary<<${delimiter}" >> $GITHUB_OUTPUT
+        echo "## Terraform Plan Output" >> $GITHUB_OUTPUT
+        echo "<details><summary>Click to expand</summary>" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo '```terraform' >> $GITHUB_OUTPUT
+        echo "$TERRAFORM_PLAN" >> $GITHUB_OUTPUT
+        echo '```' >> $GITHUB_OUTPUT
+        echo "</details>" >> $GITHUB_OUTPUT
+        echo "${delimiter}" >> $GITHUB_OUTPUT
+        
+    # Publish Terraform Plan as task summary
+    - name: Publish Terraform Plan to Task Summary
+      env:
+        SUMMARY: ${{ steps.tf-plan-string.outputs.summary }}
+      run: |
+        echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+        
+    # Terraform Apply
+    - name: Terraform Apply
+      working-directory: ${{ github.workspace }}/
+      run: terraform apply -auto-approve ${{ github.workspace }}/tfplan
+      env:
+        TF_VAR_sqlServerAdmin: ${{ secrets.SQL_SERVER_ADMIN }}
+        TF_VAR_sqlServerPwd: ${{ secrets.SQL_SERVER_PWD }}
+
+  build-and-deploy:
+    runs-on: windows-latest
+    needs: deploy-infrastructure
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        include-prerelease: true
+    
+    - name: Build with dotnet
+      run: dotnet build --configuration Release
+      working-directory: '${{ env.WORKING_DIRECTORY }}'
+       
+    - name: dotnet publish
+      run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/${{ env.APP_PACKAGE_PATH }}
+      working-directory: '${{ env.WORKING_DIRECTORY }}'
+            
+    - name: Login to Azure
+      uses: azure/login@v2
+      with:
+        client-id: ${{ env.ARM_CLIENT_ID }}
+        tenant-id: ${{ env.ARM_TENANT_ID }}
+        subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
+  
+    - name: Deploy to Azure Web App
+      id: deploy-to-webapp
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.APP_NAME }}
+        slot-name: 'Production'
+        package: ${{ env.DOTNET_ROOT }}/{{ env.APP_PACKAGE_PATH }}
