@@ -65,11 +65,11 @@ variable "keyVaultName" {
 }
 
 variable "appServicePlanName" {
-    type     = string
-    nullable = false
+  type     = string
+  nullable = false
 }
 
 variable "webAppName" {
-    type     = string
-    nullable = false
+  type     = string
+  nullable = false
 }
